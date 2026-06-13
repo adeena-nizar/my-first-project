@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Study Assistant</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">📚</div>
+      <h1>AI Study Assistant</h1>
+      <p class="subtitle">Paste your notes below and get a concise summary instantly.</p>
+    </header>
+
+    <main>
+      <div class="card">
+        <label for="notes">Your Study Notes</label>
+        <textarea
+          id="notes"
+          placeholder="Paste your study notes here…"
+          rows="12"
+        ></textarea>
+        <div class="actions">
+          <span id="char-count" class="char-count">0 characters</span>
+          <button id="summarize-btn" onclick="summarize()">
+            <span id="btn-text">Summarize Notes</span>
+            <span id="btn-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card result-card hidden" id="result-card">
+        <div class="result-header">
+          <h2>Summary</h2>
+          <button class="copy-btn" id="copy-btn" onclick="copyResult()" title="Copy to clipboard">
+            📋 Copy
+          </button>
+        </div>
+        <p id="result-text"></p>
+      </div>
+
+      <div class="card error-card hidden" id="error-card">
+        <p id="error-text"></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const notesEl = document.getElementById("notes");
+    const charCountEl = document.getElementById("char-count");
+
+    notesEl.addEventListener("input", () => {
+      const len = notesEl.value.length;
+      charCountEl.textContent = len.toLocaleString() + " character" + (len === 1 ? "" : "s");
+    });
+
+    async function summarize() {
+      const notes = notesEl.value.trim();
+      if (!notes) {
+        showError("Please paste some notes before summarizing.");
+        return;
+      }
+
+      setLoading(true);
+      hideAll();
+
+      try {
+        const res = await fetch("/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.error || "Something went wrong. Please try again.");
+        } else {
+          showResult(data.summary);
+        }
+      } catch (err) {
+        showError("Network error. Please check your connection and try again.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function setLoading(on) {
+      const btn = document.getElementById("summarize-btn");
+      const text = document.getElementById("btn-text");
+      const spinner = document.getElementById("btn-spinner");
+      btn.disabled = on;
+      text.textContent = on ? "Summarizing…" : "Summarize Notes";
+      spinner.classList.toggle("hidden", !on);
+    }
+
+    function hideAll() {
+      document.getElementById("result-card").classList.add("hidden");
+      document.getElementById("error-card").classList.add("hidden");
+    }
+
+    function showResult(summary) {
+      const card = document.getElementById("result-card");
+      document.getElementById("result-text").textContent = summary;
+      card.classList.remove("hidden");
+      card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function showError(msg) {
+      const card = document.getElementById("error-card");
+      document.getElementById("error-text").textContent = msg;
+      card.classList.remove("hidden");
+    }
+
+    function copyResult() {
+      const text = document.getElementById("result-text").textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById("copy-btn");
+        btn.textContent = "✅ Copied!";
+        setTimeout(() => { btn.textContent = "📋 Copy"; }, 2000);
+      });
+    }
+
+    document.getElementById("notes").addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") summarize();
+    });
+  </script>
+</body>
+</html>
